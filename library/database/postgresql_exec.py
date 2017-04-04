@@ -137,6 +137,7 @@ def main():
     )
 
     if not psycopg2:
+   # if not wibble:
         module.fail_json(msg='Python module "psycopg2" must be installed.')
 
     # Create type object as namespace for module params

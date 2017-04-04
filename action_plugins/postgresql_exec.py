@@ -1,3 +1,4 @@
+#!/usr/bin/python
 # -*- coding: utf-8 -*-
 # (c) 2014, Jakub Jirutka <jakub@jirutka.cz>
 #
@@ -14,8 +15,21 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from ansible import utils
-from ansible.utils import template
+#from ansible import utils
+#from ansible.utils import template
+
+import datetime
+import os
+import pwd
+import time
+
+from ansible import constants as C
+from ansible.errors import AnsibleError
+from ansible.module_utils.six import string_types
+from ansible.module_utils._text import to_bytes, to_native, to_text
+from ansible.plugins.action import ActionBase
+from ansible.utils.hashing import checksum_s
+
 
 # fixes https://github.com/ansible/ansible/issues/3518
 import sys
@@ -23,60 +37,62 @@ reload(sys)
 sys.setdefaultencoding('utf8')
 import pipes
 
+boolean = C.mk_boolean
 
-class ActionModule(object):
+class ActionModule(ActionBase):
 
     TRANSFERS_FILES = True
 
-    def __init__(self, runner):
-        self.runner = runner
+    def run(self, tmp=None, task_vars=None):
 
-    def run(self, conn, tmp, module_name, module_args, inject, complex_args=None, **kwargs):
-        ''' Handler for file load and template operations. '''
+        if task_vars is None:
+            task_vars = dict()
 
-        options = self._load_options(module_args, complex_args)
-        source = options.get('src', None)
-        remote_src = utils.boolean(options.get('remote_src', False))
+        result = super(ActionModule, self).run(tmp, task_vars)
 
-        if not remote_src:
-            if source.endswith('.j2'):
-                filepath = self._resolve_file_path(source, 'templates', inject)
-                content = template.template_from_file(
-                    self.runner.basedir, filepath, inject, vault_password=self.runner.vault_pass)
-            else:
-                filepath = self._resolve_file_path(source, 'files', inject)
-                with open(filepath, 'r') as f:
-                    content = f.read()
+        if result.get('skipped'):
+            return result
 
-            module_args = "%s content=%s" % (module_args, pipes.quote(content))
+        database  = self._task.args.get('database', None)
+        source  = self._task.args.get('src', None)
+        content = self._task.args.get('content', None)
+        force   = boolean(self._task.args.get('force', 'yes'))
+        remote_src = boolean(self._task.args.get('remote_src', False))
 
-        # propagate checkmode to module
-        if self.runner.noop_on_check(inject):
-            module_args += " CHECKMODE=True"
 
-        return self.runner._execute_module(
-            conn, tmp, 'postgresql_exec', module_args, inject=inject, complex_args=complex_args)
+        # If content is defined make a temp file and write the content into it.
+        if content is not None:
+            try:
+                # If content comes to us as a dict it should be decoded json.
+                # We need to encode it back into a string to write it out.
+                if isinstance(content, dict) or isinstance(content, list):
+                    content_tempfile = self._create_content_tempfile(json.dumps(content))
+                else:
+                    content_tempfile = self._create_content_tempfile(content)
+                source = content_tempfile
+            except Exception as err:
+                result['failed'] = True
+                result['msg'] = "could not write content temp file: %s" % to_native(err)
+                return result
 
-    def _load_options(self, module_args, complex_args):
-        ''' Load module options. '''
+        # if we have first_available_file in our vars
+        # look up the files and use the first one we find as src
+        elif remote_src:
+            result.update(self._execute_module(task_vars=task_vars))
+            return result
+        else:  # find in expected paths
+            try:
+                source = self._find_needle('files', source)
+            except AnsibleError as e:
+                result['failed'] = True
+                result['msg'] = to_text(e)
+                return result
 
-        options = {}
-        if complex_args:
-            options.update(complex_args)
-        options.update(utils.parse_kv(module_args))
+        # Execute the file module.
+        module_return = self._execute_module(module_name='postgresql_exec',
+                task_vars=task_vars,
+                tmp=tmp)
 
-        return options
+        return module_return
 
-    def _resolve_file_path(self, filepath, dirname, inject):
-        ''' Resolve absolute path of the file. '''
 
-        basedir = self.runner.basedir
-        filepath = template.template(basedir, filepath, inject)
-
-        if '_original_file' in inject:
-            origin_path = inject['_original_file']
-            filepath = utils.path_dwim_relative(origin_path, dirname, filepath, basedir)
-        else:
-            filepath = utils.path_dwim(basedir, filepath)
-
-        return filepath
