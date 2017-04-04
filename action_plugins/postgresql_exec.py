@@ -96,7 +96,10 @@ class ActionModule(ActionBase):
 #        try:
         source = self._find_needle('files', source)
         src = open(source)
-        content = src.read()
+        #content = src.read()
+        template_data = to_text(src.read())
+        resultant = self._templar.do_template(template_data, preserve_trailing_newlines=True, escape_backslashes=False)
+        content = resultant
 #         except AnsibleError as e:
 #             result['failed'] = True
 #             result['msg'] = to_text(e)
