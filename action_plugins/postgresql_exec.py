@@ -56,7 +56,7 @@ class ActionModule(ActionBase):
         # parse task_vars that will decide action choices
         #database  = self._task.args.get('database', None)
         source  = self._task.args.get('src', None)
-        #content = self._task.args.get('content', None)
+        content = self._task.args.get('content', None)
         force   = boolean(self._task.args.get('force', 'yes'))
         remote_src = boolean(self._task.args.get('remote_src', False))
 
@@ -94,16 +94,17 @@ class ActionModule(ActionBase):
 
 
 #        try:
-#         source = self._find_needle('files', source)
-#         src = open(source)
-#         content = src.read()
+        source = self._find_needle('files', source)
+        src = open(source)
+        content = src.read()
 #         except AnsibleError as e:
 #             result['failed'] = True
 #             result['msg'] = to_text(e)
 #             return result
 #
-        content = 'insert into wibbletest (wibbletest) values (true);'
+        #content = 'insert into wibbletest (wibbletest) values (true);'
 
+        
         #module_args = "%s content=%s" % (module_args, pipes.quote(content))
 
         new_module_args = self._task.args.copy()
