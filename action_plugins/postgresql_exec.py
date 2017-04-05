@@ -15,8 +15,6 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-#from ansible import utils
-#from ansible.utils import template
 
 import datetime
 import os
@@ -29,13 +27,6 @@ from ansible.module_utils.six import string_types
 from ansible.module_utils._text import to_bytes, to_native, to_text
 from ansible.plugins.action import ActionBase
 from ansible.utils.hashing import checksum_s
-
-
-# fixes https://github.com/ansible/ansible/issues/3518
-import sys
-reload(sys)
-sys.setdefaultencoding('utf8')
-import pipes
 
 boolean = C.mk_boolean
 
@@ -52,64 +43,41 @@ class ActionModule(ActionBase):
 
         if result.get('skipped'):
             return result
-        
+
         # parse task_vars that will decide action choices
-        #database  = self._task.args.get('database', None)
         source  = self._task.args.get('src', None)
         content = self._task.args.get('content', None)
-        force   = boolean(self._task.args.get('force', 'yes'))
         remote_src = boolean(self._task.args.get('remote_src', False))
 
-#         if source.endswith('.j2'):
-#             filepath = self._resolve_file_path(source, 'templates', inject)
-#             content = template.template_from_file(
-#                 self.runner.basedir, filepath, inject, vault_password=self.runner.vault_pass)
-#         else:
-#             filepath = self._resolve_file_path(source, 'files', inject)
-#             with open(filepath, 'r') as f:
-#                 content = f.read()
-# 
-
-#         # If content is defined make a temp file and write the content into it.
-#         if content is not None:
-#             try:
-#                 # If content comes to us as a dict it should be decoded json.
-#                 # We need to encode it back into a string to write it out.
-#                 if isinstance(content, dict) or isinstance(content, list):
-#                     content_tempfile = self._create_content_tempfile(json.dumps(content))
-#                 else:
-#                     content_tempfile = self._create_content_tempfile(content)
-#                 source = content_tempfile
-#             except Exception as err:
-#                 result['failed'] = True
-#                 result['msg'] = "could not write content temp file: %s" % to_native(err)
-#                 return result
-# 
-#         # if we have first_available_file in our vars
-#         # look up the files and use the first one we find as src
-#         elif remote_src:
-#             result.update(self._execute_module(task_vars=task_vars))
-#             return result
-#         else:  # find in expected paths
+        # add some basic condition checks for arguments
+        result['failed'] = True
+        if (source is None and content is None):
+            result['msg'] = "src (or content) are required"
+        elif (remote_src is True and source is None):
+            result['msg'] = "remote_src needs a src to be specified"
+        else:
+            del result['failed']
 
 
-#        try:
-        source = self._find_needle('files', source)
-        src = open(source)
-        #content = src.read()
-        template_data = to_text(src.read())
-        resultant = self._templar.do_template(template_data, preserve_trailing_newlines=True, escape_backslashes=False)
-        content = resultant
-#         except AnsibleError as e:
-#             result['failed'] = True
-#             result['msg'] = to_text(e)
-#             return result
-#
-        #content = 'insert into wibbletest (wibbletest) values (true);'
+        # if remote_src is used pycog module itself reads file from the remote server with no templating
+        if remote_src:
+            result.update(self._execute_module(task_vars=task_vars))
+            return result
+        # take our source file, parse with jinja2 and inject the content into the content variable
+        elif source is not None:
+            try:
+                source = self._find_needle('files', source)
+                src = open(source)
+                template_data = to_text(src.read())
+                resultant = self._templar.do_template(template_data, preserve_trailing_newlines=True, escape_backslashes=False)
+                content = resultant
+                src.close
+            except AnsibleError as e:
+                result['failed'] = True
+                result['msg'] = to_text(e)
+                return result
 
-        
-        #module_args = "%s content=%s" % (module_args, pipes.quote(content))
-
+        # inject content into arguments passed to postgresql_exec
         new_module_args = self._task.args.copy()
         new_module_args.update(
             dict(
@@ -117,14 +85,11 @@ class ActionModule(ActionBase):
             )
         )
 
-        # Execute the file module.
+        # Execute the postgresql_exec module with templated file content
         module_return = self._execute_module(module_name='postgresql_exec',
                 module_args=new_module_args,
                 task_vars=task_vars,
                 tmp=tmp)
-        #os.system("echo " + str(task_vars) + "> /tmp/test")
         return module_return
-        #return module_args
-        #task_vars
 
 
