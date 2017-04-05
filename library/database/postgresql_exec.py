@@ -16,19 +16,23 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+ANSIBLE_METADATA = {'metadata_version': '1.0',
+                    'status': ['preview'],
+                    'supported_by': 'community'}
+
 DOCUMENTATION = '''
 ---
 module: postgresql_exec
 author: Jakub Jirutka
 version_added: "never"
-short_description: Executes a SQL script in PostgreSQL.
-description:
+short_desql_statemention: Executes a SQL sql_statement in PostgreSQL.
+desql_statemention:
   - This module is intended for initializing database schema and maybe
-    populating with some seed data from a SQL script. However, it can be used
+    populating with some seed data from a SQL sql_statement. However, it can be used
     to execute any SQL commands. It is up to the user to maintain idempotence.
 options:
   src:
-    description:
+    desql_statemention:
       - Path of a SQL file on the local machine; can be absolute or relative.
         If the path ends with C(.j2), then it is considered as a Jinja2
         formatted template.
@@ -36,39 +40,39 @@ options:
         instaed (templating is not supported in this mode).
     required: false
   remote_src:
-    description:
-      - If C(no), the script file will be copied from the local machine,
+    desql_statemention:
+      - If C(no), the sql_statement file will be copied from the local machine,
         otherwise it will be located on the remote machine.
     required: false
     choices: [ "yes", "no" ]
     default: "no"
   content:
-    description:
+    desql_statemention:
       - When used instead of C(src), execute SQL commands specified as the value.
     required: false
   database:
-    description:
+    desql_statemention:
       - Name of the database to connect to.
     required: true
     aliases: [ "db" ]
   host:
-    description:
+    desql_statemention:
       - The database host address. If unspecified, connect via Unix socket.
     aliases: [ "login_host" ]
     required: false
   port:
-    description:
+    desql_statemention:
       - The database port to connect to.
     required: false
     default: "5432"
   user:
-    description:
+    desql_statemention:
       - The username to authenticate with.
     aliases: [ "login_user", "login" ]
     required: false
     default: "postgres"
   password:
-    description:
+    desql_statemention:
       - The password to authenticate with.
     aliases: [ "login_password" ]
     required: false
@@ -83,34 +87,54 @@ requirements: [psycopg2]
 '''
 
 EXAMPLES = '''
-# Execute SQL script located in the files directory.
+# Execute SQL sql_statement located in the files directory.
 - postgresql_exec: >
-    src=script.sql
+    src=sql_statement.sql
     host=db.example.org
     database=foodb
     user=foodb
     password=top-secret
 
-# Execute templated SQL script located in the templates directory.
+# Execute templated SQL sql_statement located in the templates directory.
 - postgresql_exec: >
-    src=script.sql.j2
+    src=sql_statement.sql.j2
     database=foodb
     user=foodb
 
-# Execute /tmp/script.sql located on the remote (managed) system.
+# Execute /tmp/sql_statement.sql located on the remote (managed) system.
 - postgresql_exec: >
     remote_src=yes
-    src=/tmp/script.sql
+    src=/tmp/sql_statement.sql
     database=foodb
     user=foodb
 '''
 
+HAS_PSYCOPG2 = False
 try:
     import psycopg2
-    import psycopg2.extensions
+    import psycopg2.extras
 except ImportError:
-    psycopg2 = None
+    pass
+else:
+    HAS_PSYCOPG2 = True
 
+# fixes https://github.com/ansible/ansible/issues/3518
+import sys
+reload(sys)
+sys.setdefaultencoding('utf8')
+import pipes
+
+import traceback
+
+from ansible.module_utils.six import iteritems
+
+from ansible.module_utils.database import SQLParseError, pg_quote_identifier
+from ansible.module_utils.basic import get_exception, AnsibleModule
+
+from ansible.module_utils._text import to_native
+
+class NotSupportedError(Exception):
+    pass
 
 def readfile(path):
     f = open(path, 'r')
@@ -119,67 +143,127 @@ def readfile(path):
     finally:
         f.close()
 
+####### taken from pgutils postgres module utils in Ansible 2.3  #######
+class LibraryError(Exception):
+    pass
+
+def ensure_libs(sslrootcert=None):
+    if not HAS_PSYCOPG2:
+        raise LibraryError('psycopg2 is not installed. we need psycopg2.')
+    if sslrootcert and psycopg2.__version__ < '2.4.3':
+        raise LibraryError('psycopg2 must be at least 2.4.3 in order to use the ssl_rootcert parameter')
+
+    # no problems
+    return None
+
+def postgres_common_argument_spec():
+    return dict(
+        login_user        = dict(default='postgres'),
+        login_password    = dict(default='', no_log=True),
+        login_host        = dict(default=''),
+        login_unix_socket = dict(default=''),
+        port              = dict(type='int', default=5432),
+        ssl_mode          = dict(default='prefer', choices=['disable', 'allow', 'prefer', 'require', 'verify-ca', 'verify-full']),
+        ssl_rootcert      = dict(default=None),
+    )
+#######
 
 def main():
+
+    # migrate when 2.3 released to pgutils
+    #argument_spec = pgutils.postgres_common_argument_spec()
+    argument_spec = postgres_common_argument_spec()
+    argument_spec.update(dict(
+        db=dict(required=True, aliases=['name','database']),
+
+        content=dict(no_log=True),
+        remote_src=dict(default=False, type='bool'),
+        src=dict(), # used in postgresql_exec action plugin to load content from file and template it into content field
+    ))
+
     module = AnsibleModule(
-        argument_spec={
-            'content':    {'no_log': True},
-            'remote_src': {'default': False, 'type': 'bool'},
-            'database':   {'required': True, 'aliases': ['db']},
-            'host':       {'default': '', 'aliases': ['login_host']},
-            'port':       {'default': 5432, 'type': 'int'},
-            'user':       {'default': 'postgres', 'aliases': ['login_user', 'login']},
-            'password':   {'default': '', 'aliases': ['login_password'], 'no_log': True},
-            'src':        {},  # used in postgresql_exec plugin runner to load content from file
-        },
-        required_one_of=[['src', 'content']],
-        supports_check_mode=True
+        argument_spec=argument_spec,
+        supports_check_mode = True
     )
 
-    if not psycopg2:
-   # if not wibble:
-        module.fail_json(msg='Python module "psycopg2" must be installed.')
+    if not HAS_PSYCOPG2:
+        module.fail_json(msg="the python psycopg2 module is required")
 
-    # Create type object as namespace for module params
-    p = type('Params', (), module.params)
+    db = module.params["db"]
+    port = module.params["port"]
+    sslrootcert = module.params["ssl_rootcert"]
+    content = module.params["content"]
+    remote_src = module.params["remote_src"]
+    src = module.params["src"]
 
-    if p.remote_src and p.src:
+    changed = False
+
+    # handle the reading in of our sql_statement
+    if remote_src and src:
         try:
-            script = readfile(p.src)
+            sql_statement = readfile(src)
         except IOError, e:
             module.fail_json(msg=str(e))
     else:
-        script = p.content
+        sql_statement = content
 
-    # To use defaults values, keyword arguments must be absent, so check which
-    # values are empty and don't include in the **db_params dictionary.
-    db_params = dict((k, v) for (k, v) in module.params.iteritems()
-                     if k in ['host', 'port', 'user', 'password', 'database'] and v != '')
+    # To use defaults values, keyword arguments must be absent, so
+    # check which values are empty and don't include in the **kw
+    # dictionary
+    params_map = {
+        "login_host":"host",
+        "login_user":"user",
+        "login_password":"password",
+        "port":"port",
+        "ssl_mode":"sslmode",
+        "ssl_rootcert":"sslrootcert",
+        "db":"database",
+    }
+    kw = dict( (params_map[k], v) for (k, v) in iteritems(module.params)
+              if k in params_map and v != '' and v is not None)
 
-    # Connect to Database
+    # If a login_unix_socket is specified, incorporate it here.
+    is_localhost = "host" not in kw or kw["host"] == "" or kw["host"] == "localhost"
+    if is_localhost and module.params["login_unix_socket"] != "":
+        kw["host"] = module.params["login_unix_socket"]
+
     try:
-        dbconn = psycopg2.connect(**db_params)
-        cursor = dbconn.cursor()
-    except Exception, e:
-        module.fail_json(msg="unable to connect to database: %s" % e)
+#        pgutils.ensure_libs(sslrootcert=module.params.get('ssl_rootcert'))
+        ensure_libs(sslrootcert=module.params.get('ssl_rootcert'))
+        db_connection = psycopg2.connect(**kw)
+        # Enable autocommit so we can create databases
+        if psycopg2.__version__ >= '2.4.2':
+            db_connection.autocommit = True
+        else:
+            db_connection.set_isolation_level(psycopg2.extensions.ISOLATION_LEVEL_AUTOCOMMIT)
+        cursor = db_connection.cursor(cursor_factory=psycopg2.extras.DictCursor)
+
+#    except pgutils.LibraryError:
+    except LibraryError:
+        e = get_exception()
+        module.fail_json(msg="unable to connect to database: {0}".format(str(e)), exception=traceback.format_exc())
+
+    except TypeError:
+        e = get_exception()
+        if 'sslrootcert' in e.args[0]:
+            module.fail_json(msg='Postgresql server must be at least version 8.4 to support sslrootcert. Exception: {0}'.format(e),
+                             exception=traceback.format_exc())
+        module.fail_json(msg="unable to connect to database: %s" % e, exception=traceback.format_exc())
+
+    except Exception:
+        e = get_exception()
+        module.fail_json(msg="unable to connect to database: %s" % e, exception=traceback.format_exc())
 
     try:
-        cursor.execute(script)
+        cursor.execute(sql_statement)
 
     except psycopg2.Error, e:
-        dbconn.rollback()
+        db_connection.rollback()
         # psycopg2 errors come in connection encoding, reencode
-        msg = e.message.decode(dbconn.encoding).encode(sys.getdefaultencoding(), 'replace')
+        msg = e.message.decode(db_connection.encoding).encode(sys.getdefaultencoding(), 'replace')
         module.fail_json(msg=msg)
-
-    if module.check_mode:
-        dbconn.rollback()
-    else:
-        dbconn.commit()
 
     module.exit_json(changed=True)
 
-
-# import module snippets
-from ansible.module_utils.basic import *
-main()
+if __name__ == '__main__':
+    main()
