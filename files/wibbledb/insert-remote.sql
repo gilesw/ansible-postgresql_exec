@@ -1,1 +1,1 @@
-INSERT into wibbletable (wibbletext) values (true, 'remote');
+INSERT into wibbletable (wibbletext) values ('remote');

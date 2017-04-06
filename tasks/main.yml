@@ -13,6 +13,7 @@
   postgresql_exec:
     src: files/wibbledb/seed.sql
     database: wibbledb
+#  ignore_errors: true
 
 - name: insert into wibbletext in wibbletable table
   postgresql_exec:
@@ -23,7 +24,7 @@
 
 - name: insert into wibbletext in wibbletable table value content
   postgresql_exec:
-    content: "INSERT into wibbletable (wibbletext) values (true, 'content')"
+    content: "INSERT into wibbletable (wibbletext) values ('content')"
     database: wibbledb
 
 - name: insert into wibbletext in wibbletest table value remote
