@@ -38,6 +38,7 @@ before_install:
 
 install:
   - pip install ansible=="$ANSIBLE_VERSION"
+  - pip install six
 
 script:
   - echo localhost > inventory
