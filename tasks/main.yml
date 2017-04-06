@@ -1,2 +1,40 @@
----
-# tasks file for ansible-postgresql_exec
+- name: create wibbledb db work with
+  postgresql_db:
+    name: wibbledb
+    template: template0
+  run_once: true
+
+- name: copy insert-remote.sql to /tmp on remote server and
+  copy:
+    src: files/wibbledb/insert-remote.sql
+    dest: /var/tmp/insert-remote.sql
+
+- name: seed wibbletable table in wibbledb database
+  postgresql_exec:
+    src: files/wibbledb/seed.sql
+    database: wibbledb
+
+- name: insert into wibbletext in wibbletable table
+  postgresql_exec:
+    src: files/wibbledb/insert.sql
+    database: wibbledb
+  vars:
+    templated_value: i_was_templated
+
+- name: insert into wibbletext in wibbletable table value content
+  postgresql_exec:
+    content: "INSERT into wibbletable (wibbletext) values (true, 'content')"
+    database: wibbledb
+
+- name: insert into wibbletext in wibbletest table value remote
+  postgresql_exec:
+    src: /var/tmp/insert-remote.sql
+    remote_src: true
+    database: wibbledb
+
+- name: drop wibbletable
+  postgresql_exec:
+    content: "DROP TABLE wibbletable"
+    database: wibbledb
+
+
