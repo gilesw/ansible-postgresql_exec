@@ -1,4 +1,4 @@
-ansible-postgresql\_exec [![Build Status](https://travis-ci.org/gilesw/ansible/ansible-postgresql_exec.png?branch=master)](https://travis-ci.org/gilesw/ansible-postgresql_exec)
+ansible-postgresql\_exec [![Build Status](https://travis-ci.org/gilesw/ansible-postgresql_exec.png?branch=master)](https://travis-ci.org/gilesw/ansible-postgresql_exec)
 =======================
 
 This role is only to test the action plugin and module postgresql exec and to demonstrate how idempotence can be developed at the Ansible task level.
