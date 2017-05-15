@@ -50,7 +50,7 @@ Return Values
 |---------|----------------------------------------------------------------------|----------|---------|--------|
 | changed | Returned when sql statement is executed correctly                    | optional | boolean | True   |
 | msg     | Capture any errors from SQL                                          | optional | string  |        |
-| result  | Capture the result of a SQL query only if we are performing a select | optional | string  |        |
+| results | Capture the result of a SQL query only if we are performing a select | optional | array   |        |
 
 
 License

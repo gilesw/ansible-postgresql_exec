@@ -257,10 +257,10 @@ def main():
     try:
         cursor.execute(sql_statement)
         # if we're performing a select collect the response
-        result = None
+        results = None
         import re
         if re.match('select+', sql_statement, re.IGNORECASE):
-            result = cursor.fetchone()
+            results = cursor.fetchone()
 
     except psycopg2.Error, e:
         db_connection.rollback()
@@ -268,7 +268,7 @@ def main():
         msg = e.message.decode(db_connection.encoding).encode(sys.getdefaultencoding(), 'replace')
         module.fail_json(msg=msg)
 
-    module.exit_json(changed=True,result=result)
+    module.exit_json(changed=True,results=results)
 
 if __name__ == '__main__':
     main()
