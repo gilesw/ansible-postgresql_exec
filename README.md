@@ -46,11 +46,15 @@ Including an example of how to use your role (for instance, with variables passe
 Return Values
 -------------
 
-| Name    | Description                                                          | Returned | type    | Sample |
-|---------|----------------------------------------------------------------------|----------|---------|--------|
-| changed | Returned when sql statement is executed correctly                    | optional | boolean | True   |
-| msg     | Capture any errors from SQL                                          | optional | string  |        |
-| results | Capture the result of a SQL query only if we are performing a select | optional | array   |        |
+| Name          | Description                                       | Returned | type      | Sample   |
+|---------------|---------------------------------------------------|----------|-----------|----------|
+| changed       | Returned when sql statement is executed correctly | optional | boolean   | True     |
+| msg           | Capture any errors from SQL                       | optional | string    |          |
+| rows          | List containing lists (rows) from select          | optional | list list |          |
+| rows\_flatten | List of rows from select                          | optional | list      |          |
+| rowfirst      | First row of any result set                       | optional | string    |          |
+| statusmessage | http://initd.org/psycopg/docs/cursor.html         | always   | string    | INSERT 1 |
+| rowcount      | http://initd.org/psycopg/docs/cursor.html         | always   | int       | 1        |
 
 
 License
