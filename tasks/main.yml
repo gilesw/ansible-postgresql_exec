@@ -13,7 +13,7 @@
   postgresql_exec:
     src: files/wibbledb/seed.sql
     database: wibbledb
-#  ignore_errors: true
+  ignore_errors: true
 
 - name: insert into wibbletext in wibbletable table
   postgresql_exec:
@@ -27,11 +27,61 @@
     content: "INSERT into wibbletable (wibbletext) values ('content')"
     database: wibbledb
 
+- name: select count(*) from wibbletable where wibbletext = 'content'
+  postgresql_exec:
+    content: select count(*) from wibbletable where wibbletext = 'content'
+    database: wibbledb
+  register: select_content_test
+
+- debug: msg="{{ select_content_test }}"
+
+- name: "test {{ select_content_test }} = 1"
+  shell: echo "OK"
+  when: select_content_test.rowcount == 1
+  register: ok_select_content_test
+
+- debug: msg="{{ ok_select_content_test.stdout }}"
+
 - name: insert into wibbletext in wibbletest table value remote
   postgresql_exec:
     src: /var/tmp/insert-remote.sql
     remote_src: true
     database: wibbledb
+
+- name: select * from wibbletable
+  postgresql_exec:
+    content: select * from wibbletable
+    database: wibbledb
+  register: select_all
+
+- debug: msg="{{ select_all }}"
+
+- name: "test select_all.rows_flatten length == 3"
+  shell: echo "OK"
+  when: select_all.rows_flatten|length == 3
+  register: ok_select_all
+
+- debug: msg="{{ ok_select_all.stdout }}"
+
+- name: select * from wibbletable where wibbletext = 'fail'
+  postgresql_exec:
+    content: select * from wibbletable where wibbletext = 'fail'
+    database: wibbledb
+  register: select_fail
+
+- debug: msg="{{ select_fail }}"
+
+- name: "test select_fail length == 0"
+  shell: echo "OK"
+  when: select_fail.rows_flatten|length == 0
+  register: ok_select_fail
+
+- debug: msg="{{ ok_select_fail.stdout }}"
+
+
+
+
+
 
 - name: drop wibbletable
   postgresql_exec:

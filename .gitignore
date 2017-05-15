@@ -1,2 +1,3 @@
+*.retry
 *.pyc
 meta/.galaxy_install_info

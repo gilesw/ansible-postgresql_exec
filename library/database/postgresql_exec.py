@@ -257,10 +257,21 @@ def main():
     try:
         cursor.execute(sql_statement)
         # if we're performing a select collect the response
-        results = None
+        statusmessage= cursor.statusmessage
+        rowcount = cursor.rowcount
+        rowfirst = None
+        rows = None
+        rows_flatten = []
+
         import re
         if re.match('select+', sql_statement, re.IGNORECASE):
-            results = cursor.fetchone()
+            rows = cursor.fetchall()
+            # rows is a list of list addressed like rows[0][0] for the first item
+            # rows flatten can be addressed like rows[0]
+            if rows:
+                rows_flatten = sum(rows, [])
+                rowfirst = rows_flatten[0]
+
 
     except psycopg2.Error, e:
         db_connection.rollback()
@@ -268,7 +279,7 @@ def main():
         msg = e.message.decode(db_connection.encoding).encode(sys.getdefaultencoding(), 'replace')
         module.fail_json(msg=msg)
 
-    module.exit_json(changed=True,results=results)
+    module.exit_json(changed=True,rowfirst=rowfirst,rows_flatten=rows_flatten,rows=rows,rowcount=rowcount,statusmessage=statusmessage)
 
 if __name__ == '__main__':
     main()
