@@ -43,6 +43,16 @@ Including an example of how to use your role (for instance, with variables passe
       roles:
          - { role: username.rolename, x: 42 }
 
+Return Values
+-------------
+
+| Name    | Description                                                          | Returned | type    | Sample |
+|---------|----------------------------------------------------------------------|----------|---------|--------|
+| changed | Returned when sql statement is executed correctly                    | optional | boolean | True   |
+| msg     | Capture any errors from SQL                                          | optional | string  |        |
+| result  | Capture the result of a SQL query only if we are performing a select | optional | string  |        |
+
+
 License
 -------
 
