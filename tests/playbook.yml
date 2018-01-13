@@ -7,3 +7,5 @@
     - ./vars.yml
   roles:
     - ansible-postgresql_exec
+  post_tasks:
+    - include: test.yml
