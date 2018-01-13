@@ -36,7 +36,8 @@ before_install:
   - echo 'en_US.UTF-8 UTF-8' | sudo tee /var/lib/locales/supported.d/local
 
   # setup postgres installation and the python libs..
-  - sudo apt-get -y install postgresql python-psycopg2
+  #- sudo apt-get -y install postgresql python-psycopg2
+  - sudo apt-get -y install python-psycopg2
 
 install:
   - pip install ansible=="$ANSIBLE_VERSION"
