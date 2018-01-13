@@ -50,8 +50,7 @@ Return Values
 |---------------|---------------------------------------------------|----------|-----------|----------|
 | changed       | Returned when sql statement is executed correctly | optional | boolean   | True     |
 | msg           | Capture any errors from SQL                       | optional | string    |          |
-| rows          | List containing lists (rows) from select          | optional | list list |          |
-| rows\_flatten | List of rows from select                          | optional | list      |          |
+| rows          | List of rows from select                          | optional | list      |          |
 | rowfirst      | First row of any result set                       | optional | string    |          |
 | statusmessage | http://initd.org/psycopg/docs/cursor.html         | always   | string    | INSERT 1 |
 | rowcount      | http://initd.org/psycopg/docs/cursor.html         | always   | int       | 1        |
