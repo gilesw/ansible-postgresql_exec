@@ -269,9 +269,9 @@ def main():
             # rows is a list of list addressed like rows[0][0] for the first item
             # rows flatten can be addressed like rows[0]
             if rows:
-                rows_flatten = sum(rows, [])
-                rowfirst = rows_flatten[0]
-
+                rows = sum(rows, [])
+                rowfirst = rows[0]
+                #rows = rows_flatten
 
     except psycopg2.Error, e:
         db_connection.rollback()
@@ -279,7 +279,7 @@ def main():
         msg = e.message.decode(db_connection.encoding).encode(sys.getdefaultencoding(), 'replace')
         module.fail_json(msg=msg)
 
-    module.exit_json(changed=True,rowfirst=rowfirst,rows_flatten=rows_flatten,rows=rows,rowcount=rowcount,statusmessage=statusmessage)
+    module.exit_json(changed=True,rowfirst=rowfirst,rows=rows,rowcount=rowcount,statusmessage=statusmessage)
 
 if __name__ == '__main__':
     main()

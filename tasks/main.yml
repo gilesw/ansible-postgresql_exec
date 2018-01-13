@@ -1,3 +1,4 @@
+---
 - name: create wibbledb db work with
   postgresql_db:
     name: wibbledb
@@ -56,9 +57,9 @@
 
 - debug: msg="{{ select_all }}"
 
-- name: "test select_all.rows_flatten length == 3"
+- name: "test select_all.rows length == 3"
   shell: echo "OK"
-  when: select_all.rows_flatten|length == 3
+  when: select_all.rows|length == 3
   register: ok_select_all
 
 - debug: msg="{{ ok_select_all.stdout }}"
@@ -73,7 +74,7 @@
 
 - name: "test select_fail length == 0"
   shell: echo "OK"
-  when: select_fail.rows_flatten|length == 0
+  when: select_fail.rows|length == 0
   register: ok_select_fail
 
 - debug: msg="{{ ok_select_fail.stdout }}"
